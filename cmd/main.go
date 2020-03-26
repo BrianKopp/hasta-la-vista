@@ -7,6 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -16,6 +19,15 @@ func main() {
 	setLogLevel()
 	appSecret := getAppSecret()
 	clusterName := getClusterName()
+
+	// set up AWS clients
+	awsSession := session.Must(session.NewSession())
+	config := aws.Config{Region: aws.String(getAWSRegion())}
+	elbClient := elb.New(awsSession, &config)
+	// elbv2Client := elbv2.New(awsSession, &config)
+
+	handler := &handler{
+		ELB: elbClient}
 
 	svr := &http.Server{Addr: fmt.Sprintf(":%v", getPort())}
 	http.HandleFunc("/health", func(response http.ResponseWriter, request *http.Request) {
@@ -38,7 +50,7 @@ func main() {
 		nodeID := request.URL.Query().Get("id")
 		nodeIP := request.URL.Query().Get("ip")
 		vpcID := request.URL.Query().Get("vpcid")
-		err := handleDeregistration(nodeID, nodeIP, clusterName, vpcID)
+		err := handler.handleDeregistration(nodeID, nodeIP, clusterName, vpcID)
 		if err != nil {
 			response.WriteHeader(500)
 			return

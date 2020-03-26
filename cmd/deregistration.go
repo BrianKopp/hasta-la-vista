@@ -18,7 +18,7 @@ var awsSession = session.Must(session.NewSession())
 var elbClient *elb.ELB
 var elbV2Client *elbv2.ELBV2
 
-func handleDeregistration(nIP string, nID string, clusterName string, vpcID string) error {
+func (m *handler) handleDeregistration(nIP string, nID string, clusterName string, vpcID string) error {
 	log.Info().
 		Str("nodeIP", nIP).
 		Str("nodeID", nID).
@@ -51,7 +51,7 @@ func handleDeregistration(nIP string, nID string, clusterName string, vpcID stri
 	var wg sync.WaitGroup
 	log.Info().Msg("beginning drain operations")
 	go func() {
-		err := drainNodeFromELBV1sInCluster(nodeID, clusterName, vpcID)
+		err := m.drainNodeFromELBV1sInCluster(nodeID, clusterName, vpcID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -87,8 +87,8 @@ func getNodeIDFromIP(nodeIP string) (string, error) {
 	return "TODO", nil
 }
 
-func drainNodeFromELBV1sInCluster(nodeID string, clusterName string, vpcID string) error {
-	elbV1Names, err := getELBV1NamesInCluster(clusterName, vpcID)
+func (m *handler) drainNodeFromELBV1sInCluster(nodeID string, clusterName string, vpcID string) error {
+	elbV1Names, err := m.getELBV1s(clusterName, vpcID)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func drainNodeFromELBV1sInCluster(nodeID string, clusterName string, vpcID strin
 		start := time.Now()
 		go func(name string) {
 			for {
-				drained, _ := drainNodeFromELBV1(nodeID, name)
+				drained, _ := m.drainNodeFromELBV1(nodeID, name)
 				if drained {
 					wg.Done()
 					break
@@ -144,83 +144,6 @@ func drainNodeFromELBV2sInCluster(nodeID string, clusterName string, vpcID strin
 
 	wg.Wait()
 	return nil
-}
-
-func getELBV1NamesInCluster(clusterName string, vpcID string) ([]string, error) {
-	elbDescribeParams := &elb.DescribeLoadBalancersInput{}
-	elbClient := getELBClient()
-	elbs, err := elbClient.DescribeLoadBalancers(elbDescribeParams)
-	if err != nil {
-		return nil, err
-	}
-
-	elbsInVPC := []*string{}
-	for _, element := range elbs.LoadBalancerDescriptions {
-		if *element.VPCId == vpcID {
-			elbsInVPC = append(elbsInVPC, element.LoadBalancerName)
-		}
-	}
-
-	elbTags, err := elbClient.DescribeTags(&elb.DescribeTagsInput{
-		LoadBalancerNames: elbsInVPC})
-	if err != nil {
-		return nil, err
-	}
-
-	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
-	names := []string{}
-	for _, element := range elbTags.TagDescriptions {
-		for _, tag := range element.Tags {
-			if *tag.Key == expectedTag {
-				names = append(names, *element.LoadBalancerName)
-				break
-			}
-		}
-	}
-
-	return names, nil
-}
-
-func (m *awsClients) getELBV1NamesInCluster(clusterName string, vpcID string) ([]string, error) {
-	elbsInVPC, err := m.getELBV1NamesInVPC(vpcID)
-	if err != nil {
-		return nil, err
-	}
-
-	elbTags, err := m.ELB.DescribeTags(&elb.DescribeTagsInput{
-		LoadBalancerNames: elbsInVPC})
-	if err != nil {
-		return nil, err
-	}
-
-	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
-	names := []string{}
-	for _, element := range elbTags.TagDescriptions {
-		for _, tag := range element.Tags {
-			if *tag.Key == expectedTag {
-				names = append(names, *element.LoadBalancerName)
-				break
-			}
-		}
-	}
-
-	return names, nil
-}
-
-func (m *awsClients) getELBV1NamesInVPC(vpcID string) ([]*string, error) {
-	elbDescribeParams := &elb.DescribeLoadBalancersInput{}
-	elbs, err := m.ELB.DescribeLoadBalancers(elbDescribeParams)
-	if err != nil {
-		return nil, err
-	}
-
-	elbsInVPC := []*string{}
-	for _, element := range elbs.LoadBalancerDescriptions {
-		if *element.VPCId == vpcID {
-			elbsInVPC = append(elbsInVPC, element.LoadBalancerName)
-		}
-	}
-	return elbsInVPC, nil
 }
 
 func getELBV2TargetGroupARNsInCluster(clusterName string, vpcID string) ([]string, error) {
@@ -274,36 +197,6 @@ func getELBV2TargetGroupARNsInCluster(clusterName string, vpcID string) ([]strin
 	}
 
 	return targetGroupARNs, nil
-}
-
-func drainNodeFromELBV1(nodeID string, elbV1Name string) (done bool, e error) {
-	elbClient := getELBClient()
-	result, err := elbClient.DescribeInstanceHealth(&elb.DescribeInstanceHealthInput{
-		LoadBalancerName: &elbV1Name})
-	if err != nil {
-		return false, err
-	}
-
-	instanceAtELB := false
-	for _, element := range result.InstanceStates {
-		if *element.InstanceId == nodeID && *element.State == "InService" {
-			instanceAtELB = true
-			break
-		}
-	}
-
-	if !instanceAtELB {
-		return true, nil
-	}
-
-	_, err = elbClient.DeregisterInstancesFromLoadBalancer(&elb.DeregisterInstancesFromLoadBalancerInput{
-		Instances:        []*elb.Instance{&elb.Instance{InstanceId: &nodeID}},
-		LoadBalancerName: &elbV1Name})
-	if err != nil {
-		return false, err
-	}
-
-	return false, nil
 }
 
 func drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn string) (done bool, e error) {

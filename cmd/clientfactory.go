@@ -19,10 +19,12 @@ func (f *clientFactory) getELBClient() *elb.ELB {
 }
 
 type myELBAPI interface {
+	DeregisterInstancesFromLoadBalancer(input *elb.DeregisterInstancesFromLoadBalancerInput) (*elb.DeregisterInstancesFromLoadBalancerOutput, error)
+	DescribeInstanceHealth(input *elb.DescribeInstanceHealthInput) (*elb.DescribeInstanceHealthOutput, error)
 	DescribeLoadBalancers(input *elb.DescribeLoadBalancersInput) (*elb.DescribeLoadBalancersOutput, error)
 	DescribeTags(input *elb.DescribeTagsInput) (*elb.DescribeTagsOutput, error)
 }
 
-type awsClients struct {
+type handler struct {
 	ELB myELBAPI
 }
