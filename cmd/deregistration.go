@@ -2,11 +2,9 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -39,13 +37,13 @@ func (m *handler) handleDeregistration(nIP string, nID string, clusterName strin
 
 	var nodeID string
 	if nID == "" {
-		id, err := getNodeIDFromIP(nIP)
+		id, err := m.getNodeIDFromIP(nIP)
 		if err != nil {
 			return err
 		}
 
-		log.Info().Str("nodeID", id).Msg("acquired node id from node ip")
-		nodeID = id
+		log.Info().Str("nodeID", *id).Msg("acquired node id from node ip")
+		nodeID = *id
 	}
 
 	var wg sync.WaitGroup
@@ -65,7 +63,7 @@ func (m *handler) handleDeregistration(nIP string, nID string, clusterName strin
 	}()
 
 	go func() {
-		err := drainNodeFromELBV2sInCluster(nodeID, clusterName, vpcID)
+		err := m.drainNodeFromELBV2sInCluster(nodeID, clusterName, vpcID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -80,11 +78,6 @@ func (m *handler) handleDeregistration(nIP string, nID string, clusterName strin
 
 	wg.Wait()
 	return nil // TODO report error
-}
-
-// getNodeIDFromIP gets the node id from the ip...
-func getNodeIDFromIP(nodeIP string) (string, error) {
-	return "TODO", nil
 }
 
 func (m *handler) drainNodeFromELBV1sInCluster(nodeID string, clusterName string, vpcID string) error {
@@ -116,8 +109,8 @@ func (m *handler) drainNodeFromELBV1sInCluster(nodeID string, clusterName string
 	return nil
 }
 
-func drainNodeFromELBV2sInCluster(nodeID string, clusterName string, vpcID string) error {
-	targetGroupARNs, err := getELBV2TargetGroupARNsInCluster(clusterName, vpcID)
+func (m *handler) drainNodeFromELBV2sInCluster(nodeID string, clusterName string, vpcID string) error {
+	targetGroupARNs, err := m.getELBV2TargetGroupARNsInCluster(clusterName, vpcID)
 	if err != nil {
 		return nil
 	}
@@ -128,7 +121,7 @@ func drainNodeFromELBV2sInCluster(nodeID string, clusterName string, vpcID strin
 		start := time.Now()
 		go func(arn string) {
 			for {
-				drained, _ := drainNodeFromELBV2TargetGroup(nodeID, arn)
+				drained, _ := m.drainNodeFromELBV2TargetGroup(nodeID, arn)
 				if drained {
 					wg.Done()
 					break
@@ -144,124 +137,4 @@ func drainNodeFromELBV2sInCluster(nodeID string, clusterName string, vpcID strin
 
 	wg.Wait()
 	return nil
-}
-
-func getELBV2TargetGroupARNsInCluster(clusterName string, vpcID string) ([]string, error) {
-	elbV2DescribeParams := &elbv2.DescribeLoadBalancersInput{}
-	elbV2Client := getELBV2Client()
-
-	elbs, err := elbV2Client.DescribeLoadBalancers(elbV2DescribeParams)
-	if err != nil {
-		return nil, err
-	}
-
-	elbsInVPC := []*string{}
-	for _, element := range elbs.LoadBalancers {
-		if *element.VpcId == vpcID {
-			elbsInVPC = append(elbsInVPC, element.LoadBalancerArn)
-		}
-	}
-
-	elbTags, err := elbV2Client.DescribeTags(&elbv2.DescribeTagsInput{
-		ResourceArns: elbsInVPC})
-	if err != nil {
-		return nil, err
-	}
-
-	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
-	elbV2ARNs := []*string{}
-	for _, element := range elbTags.TagDescriptions {
-		for _, tag := range element.Tags {
-			if *tag.Key == expectedTag {
-				elbV2ARNs = append(elbV2ARNs, element.ResourceArn)
-				break
-			}
-		}
-	}
-
-	targetGroupARNs := []string{}
-	for _, elbARN := range elbV2ARNs {
-		listeners, err := elbV2Client.DescribeListeners(&elbv2.DescribeListenersInput{
-			LoadBalancerArn: elbARN})
-		if err != nil {
-			return nil, err
-		}
-		for _, listener := range listeners.Listeners {
-			if len(listener.DefaultActions) > 0 {
-				da := listener.DefaultActions[0]
-				if !contains(targetGroupARNs, *da.TargetGroupArn) {
-					targetGroupARNs = append(targetGroupARNs, *da.TargetGroupArn)
-				}
-			}
-		}
-	}
-
-	return targetGroupARNs, nil
-}
-
-func drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn string) (done bool, e error) {
-	elbV2Client := getELBV2Client()
-	healthResult, err := elbV2Client.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
-		TargetGroupArn: &targetGroupArn})
-	if err != nil {
-		return false, err
-	}
-
-	instanceAtELB := false
-	matchingStates := []string{"initial", "healthy", "draining"}
-	var state string
-	for _, desc := range healthResult.TargetHealthDescriptions {
-		if *desc.Target.Id == nodeID && contains(matchingStates, *desc.TargetHealth.State) {
-			instanceAtELB = true
-			state = *desc.TargetHealth.State
-			break
-		}
-	}
-
-	if !instanceAtELB {
-		return true, nil
-	}
-
-	requireDraining := state != "draining"
-	if requireDraining {
-		_, err = elbV2Client.DeregisterTargets(&elbv2.DeregisterTargetsInput{
-			TargetGroupArn: &targetGroupArn,
-			Targets:        []*elbv2.TargetDescription{&elbv2.TargetDescription{Id: &nodeID}}})
-		if err != nil {
-			return false, err
-		}
-	}
-
-	return false, nil
-}
-
-func getELBClient() *elb.ELB {
-	if elbClient == nil {
-		config := aws.Config{
-			Region: aws.String(getAWSRegion()),
-		}
-		elbClient = elb.New(awsSession, &config)
-	}
-
-	return elbClient
-}
-
-func getELBV2Client() *elbv2.ELBV2 {
-	if elbV2Client == nil {
-		config := aws.Config{
-			Region: aws.String(getAWSRegion()),
-		}
-		elbV2Client = elbv2.New(awsSession, &config)
-	}
-
-	return elbV2Client
-}
-
-func contains(lst []string, s string) bool {
-	for _, a := range lst {
-		if a == s {
-			return true
-		}
-	}
-	return false
 }

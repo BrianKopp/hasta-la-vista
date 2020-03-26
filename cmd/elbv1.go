@@ -13,14 +13,14 @@ func (m *handler) getELBV1s(clusterName string, vpcID string) ([]string, error) 
 	}
 
 	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
-	filteredELBs, err := m.filterELBV1sWithTags(elbsInVPC, expectedTag)
+	filteredELBs, err := m.filterELBV1sWithTag(elbsInVPC, expectedTag)
 	if err != nil {
 		return nil, err
 	}
 	return filteredELBs, nil
 }
 
-func (m *handler) filterELBV1sWithTags(elbNames []*string, tagName string) ([]string, error) {
+func (m *handler) filterELBV1sWithTag(elbNames []*string, tagName string) ([]string, error) {
 	elbTags, err := m.ELB.DescribeTags(&elb.DescribeTagsInput{
 		LoadBalancerNames: elbNames})
 	if err != nil {

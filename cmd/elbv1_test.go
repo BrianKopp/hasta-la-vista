@@ -87,7 +87,7 @@ func TestFilterELBV1s(t *testing.T) {
 		clients := &handler{ELB: &fakeELB{
 			describeTagsOutput: &c.Resp,
 		}}
-		filtered, _ := clients.filterELBV1sWithTags(nil, "kubernetets/cluster/clustername")
+		filtered, _ := clients.filterELBV1sWithTag(nil, "kubernetets/cluster/clustername")
 		if len(filtered) != len(c.Expected) {
 			t.Fatalf("%d failed - unexpected number of results, expected %v, actual %v", i, len(c.Expected), len(filtered))
 		}
@@ -115,5 +115,33 @@ func TestDrainNodeFromELBV1WhenPresent(t *testing.T) {
 			},
 		},
 	}
-	result, _ := clients.drainNodeFromELBV1()
+	result, err := clients.drainNodeFromELBV1("myinstance", "")
+	if result || err != nil {
+		t.Fatalf("failed - expected result to be false and err to be nil")
+	}
+}
+
+func TestDrainNodeFromELBV1WhenNotPresent(t *testing.T) {
+	clients := &handler{
+		ELB: &fakeELB{
+			descHealthOutput: &elb.DescribeInstanceHealthOutput{
+				InstanceStates: []*elb.InstanceState{
+					&elb.InstanceState{
+						InstanceId: aws.String("myinstance"),
+						State:      aws.String("InService"),
+					},
+				},
+			},
+			deregOutput: &elb.DeregisterInstancesFromLoadBalancerOutput{
+				Instances: []*elb.Instance{},
+			},
+		},
+	}
+	result, err := clients.drainNodeFromELBV1("differentinstance", "")
+	if err != nil {
+		t.Fatalf("failed - expected err to be nil")
+	}
+	if result != true {
+		t.Fatalf("failed - expected result to be true")
+	}
 }
