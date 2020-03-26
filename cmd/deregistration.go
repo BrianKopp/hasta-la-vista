@@ -181,6 +181,48 @@ func getELBV1NamesInCluster(clusterName string, vpcID string) ([]string, error) 
 	return names, nil
 }
 
+func (m *awsClients) getELBV1NamesInCluster(clusterName string, vpcID string) ([]string, error) {
+	elbsInVPC, err := m.getELBV1NamesInVPC(vpcID)
+	if err != nil {
+		return nil, err
+	}
+
+	elbTags, err := m.ELB.DescribeTags(&elb.DescribeTagsInput{
+		LoadBalancerNames: elbsInVPC})
+	if err != nil {
+		return nil, err
+	}
+
+	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
+	names := []string{}
+	for _, element := range elbTags.TagDescriptions {
+		for _, tag := range element.Tags {
+			if *tag.Key == expectedTag {
+				names = append(names, *element.LoadBalancerName)
+				break
+			}
+		}
+	}
+
+	return names, nil
+}
+
+func (m *awsClients) getELBV1NamesInVPC(vpcID string) ([]*string, error) {
+	elbDescribeParams := &elb.DescribeLoadBalancersInput{}
+	elbs, err := m.ELB.DescribeLoadBalancers(elbDescribeParams)
+	if err != nil {
+		return nil, err
+	}
+
+	elbsInVPC := []*string{}
+	for _, element := range elbs.LoadBalancerDescriptions {
+		if *element.VPCId == vpcID {
+			elbsInVPC = append(elbsInVPC, element.LoadBalancerName)
+		}
+	}
+	return elbsInVPC, nil
+}
+
 func getELBV2TargetGroupARNsInCluster(clusterName string, vpcID string) ([]string, error) {
 	elbV2DescribeParams := &elbv2.DescribeLoadBalancersInput{}
 	elbV2Client := getELBV2Client()
