@@ -37,9 +37,9 @@ jobs:
         # The name of the image you would like to push
         name: hasta-la-vista
         # The login username for the registry
-        # username: ${{ secrets.DOCKER_USERNAME }}
+        username: ${{ secrets.DOCKER_USERNAME }}
         # The login password for the registry
-        # password: ${{ secrets.DOCKER_PASSWORD }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
         # Use tag_names when you want to push tags/release by their git name
         # tag_names: # optional
         # Push semver docker tags. e.g. image:1.2.3, image:1.2, image:1
