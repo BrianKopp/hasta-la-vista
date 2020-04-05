@@ -1,0 +1,13 @@
+version: '3'
+services:
+  hastalavista:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      AWS_REGION: "us-east-1"
+      VPCID: "foo"
+      CLUSTERNAME: "hasta"
+      LOGLEVEL: "debug"
+      SECRET: "abcd"
+      CLOUDPROVIDER: "aws"

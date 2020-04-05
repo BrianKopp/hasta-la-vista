@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -22,7 +24,9 @@ import (
 
 func buildCloudProvider(whichProvider string) (deregister.CloudProvider, error) {
 	if whichProvider == "aws" {
+		log.Info().Msg("building cloud provider for AWS")
 		clusterName := utils.GetClusterName()
+		vpcID := utils.GetVPCID()
 		awsSession := session.Must(session.NewSession())
 		config := aws.Config{Region: aws.String(utils.GetAWSRegion())}
 		elbClient := elb.New(awsSession, &config)
@@ -30,7 +34,7 @@ func buildCloudProvider(whichProvider string) (deregister.CloudProvider, error) 
 		ec2Client := ec2.New(awsSession, &config)
 		provider := &awsProvider.CloudProvider{
 			ClusterName: clusterName,
-			VPCID:       "TODO",
+			VPCID:       vpcID,
 			ELB:         elbClient,
 			ELBV2:       elbV2Client,
 			EC2:         ec2Client,
@@ -52,7 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	svr := &http.Server{Addr: fmt.Sprintf(":%v", utils.GetPort())}
+	svr := &http.Server{Addr: fmt.Sprintf(":%v", 80)}
 	http.HandleFunc("/health", func(response http.ResponseWriter, request *http.Request) {
 		fmt.Fprint(response, "OK")
 	})
@@ -81,10 +85,12 @@ func main() {
 	})
 
 	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT)
+	log.Info().Msg("HTTP server started and listening on port 80")
 
 	// Wait for an OS signal
 	<-done
-
 	log.Info().Msg("received signal, shutting down server")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer func() {
