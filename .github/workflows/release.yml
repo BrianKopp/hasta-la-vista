@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: Release
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -34,6 +34,7 @@ jobs:
     - name: Publish Docker
       uses: elgohr/Publish-Docker-Github-Action@2.14
       with:
+        registry: registry.hub.docker.com
         # The name of the image you would like to push
         name: briankopp/hasta-la-vista
         # The login username for the registry
