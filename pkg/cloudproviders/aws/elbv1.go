@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"fmt"
@@ -6,13 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/elb"
 )
 
-func (m *handler) getELBV1s(clusterName string, vpcID string) ([]string, error) {
-	elbsInVPC, err := m.getELBV1NamesInVPC(vpcID)
+func (m *CloudProvider) getELBV1s() ([]string, error) {
+	elbsInVPC, err := m.getELBV1NamesInVPC()
 	if err != nil {
 		return nil, err
 	}
 
-	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
+	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", m.ClusterName)
 	filteredELBs, err := m.filterELBV1sWithTag(elbsInVPC, expectedTag)
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (m *handler) getELBV1s(clusterName string, vpcID string) ([]string, error) 
 	return filteredELBs, nil
 }
 
-func (m *handler) filterELBV1sWithTag(elbNames []*string, tagName string) ([]string, error) {
+func (m *CloudProvider) filterELBV1sWithTag(elbNames []*string, tagName string) ([]string, error) {
 	elbTags, err := m.ELB.DescribeTags(&elb.DescribeTagsInput{
 		LoadBalancerNames: elbNames})
 	if err != nil {
@@ -40,7 +40,7 @@ func (m *handler) filterELBV1sWithTag(elbNames []*string, tagName string) ([]str
 	return names, nil
 }
 
-func (m *handler) getELBV1NamesInVPC(vpcID string) ([]*string, error) {
+func (m *CloudProvider) getELBV1NamesInVPC() ([]*string, error) {
 	elbDescribeParams := &elb.DescribeLoadBalancersInput{}
 	elbs, err := m.ELB.DescribeLoadBalancers(elbDescribeParams)
 	if err != nil {
@@ -49,14 +49,14 @@ func (m *handler) getELBV1NamesInVPC(vpcID string) ([]*string, error) {
 
 	elbsInVPC := []*string{}
 	for _, element := range elbs.LoadBalancerDescriptions {
-		if *element.VPCId == vpcID {
+		if *element.VPCId == m.VPCID {
 			elbsInVPC = append(elbsInVPC, element.LoadBalancerName)
 		}
 	}
 	return elbsInVPC, nil
 }
 
-func (m *handler) drainNodeFromELBV1(nodeID string, elbV1Name string) (done bool, e error) {
+func (m *CloudProvider) drainNodeFromELBV1(nodeID string, elbV1Name string) (done bool, e error) {
 	result, err := m.ELB.DescribeInstanceHealth(&elb.DescribeInstanceHealthInput{
 		LoadBalancerName: &elbV1Name})
 	if err != nil {

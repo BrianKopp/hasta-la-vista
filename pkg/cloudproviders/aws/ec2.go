@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 )
 
 // getNodeIDFromIP gets the node id from the ip...
-func (m *handler) getNodeIDFromIP(nodeIP string) (*string, error) {
+func (m *CloudProvider) getNodeIDFromIP(nodeIP string) (*string, error) {
 	instances, err := m.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			&ec2.Filter{

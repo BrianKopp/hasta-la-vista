@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"fmt"
@@ -6,13 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 )
 
-func (m *handler) getELBV2TargetGroupARNsInCluster(clusterName string, vpcID string) ([]string, error) {
-	elbsInVPC, err := m.getELBV2sInVPC(vpcID)
+func (m *CloudProvider) getELBV2TargetGroupARNsInCluster() ([]string, error) {
+	elbsInVPC, err := m.getELBV2sInVPC()
 	if err != nil {
 		return nil, err
 	}
 
-	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", clusterName)
+	expectedTag := fmt.Sprintf("kubernetes/cluster/%s", m.ClusterName)
 	filteredELBs, err := m.filterELBV2sWithTag(elbsInVPC, expectedTag)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func (m *handler) getELBV2TargetGroupARNsInCluster(clusterName string, vpcID str
 	return targetGroupARNs, nil
 }
 
-func (m *handler) getTargetGroupsAtELBARNs(elbV2ARNs []*string) ([]string, error) {
+func (m *CloudProvider) getTargetGroupsAtELBARNs(elbV2ARNs []*string) ([]string, error) {
 	targetGroupARNs := []string{}
 	for _, elbARN := range elbV2ARNs {
 		elbTargets, err := m.getTargetGroupsAtELB(elbARN)
@@ -42,7 +42,7 @@ func (m *handler) getTargetGroupsAtELBARNs(elbV2ARNs []*string) ([]string, error
 	return targetGroupARNs, nil
 }
 
-func (m *handler) getTargetGroupsAtELB(elbV2ARN *string) ([]*string, error) {
+func (m *CloudProvider) getTargetGroupsAtELB(elbV2ARN *string) ([]*string, error) {
 	listeners, err := m.ELBV2.DescribeListeners(&elbv2.DescribeListenersInput{
 		LoadBalancerArn: elbV2ARN})
 	if err != nil {
@@ -58,7 +58,7 @@ func (m *handler) getTargetGroupsAtELB(elbV2ARN *string) ([]*string, error) {
 	return targets, nil
 }
 
-func (m *handler) getELBV2sInVPC(vpcID string) ([]*string, error) {
+func (m *CloudProvider) getELBV2sInVPC() ([]*string, error) {
 	elbs, err := m.ELBV2.DescribeLoadBalancers(&elbv2.DescribeLoadBalancersInput{})
 	if err != nil {
 		return nil, err
@@ -66,14 +66,14 @@ func (m *handler) getELBV2sInVPC(vpcID string) ([]*string, error) {
 
 	elbsInVPC := []*string{}
 	for _, element := range elbs.LoadBalancers {
-		if *element.VpcId == vpcID {
+		if *element.VpcId == m.VPCID {
 			elbsInVPC = append(elbsInVPC, element.LoadBalancerArn)
 		}
 	}
 	return elbsInVPC, nil
 }
 
-func (m *handler) filterELBV2sWithTag(elbV2ARNs []*string, expectedTag string) ([]*string, error) {
+func (m *CloudProvider) filterELBV2sWithTag(elbV2ARNs []*string, expectedTag string) ([]*string, error) {
 	elbTags, err := m.ELBV2.DescribeTags(&elbv2.DescribeTagsInput{
 		ResourceArns: elbV2ARNs,
 	})
@@ -92,14 +92,14 @@ func (m *handler) filterELBV2sWithTag(elbV2ARNs []*string, expectedTag string) (
 	return filteredARNs, nil
 }
 
-func (m *handler) drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn string) (bool, error) {
+func (m *CloudProvider) drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn string) (bool, error) {
 	needsDraining, err := m.instanceNeedsDrainingFromTargetGroup(nodeID, targetGroupArn)
 	if err != nil {
 		return false, err
 	}
 
 	if needsDraining {
-		_, err = elbV2Client.DeregisterTargets(&elbv2.DeregisterTargetsInput{
+		_, err = m.ELBV2.DeregisterTargets(&elbv2.DeregisterTargetsInput{
 			TargetGroupArn: &targetGroupArn,
 			Targets:        []*elbv2.TargetDescription{&elbv2.TargetDescription{Id: &nodeID}}})
 		if err != nil {
@@ -110,7 +110,7 @@ func (m *handler) drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn st
 	return false, nil
 }
 
-func (m *handler) instanceNeedsDrainingFromTargetGroup(nodeID string, targetGroupArn string) (bool, error) {
+func (m *CloudProvider) instanceNeedsDrainingFromTargetGroup(nodeID string, targetGroupArn string) (bool, error) {
 	healthResult, err := m.ELBV2.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: &targetGroupArn})
 	if err != nil {

@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"os"
@@ -8,8 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// setLogLevel assigns the log level based on the LOGLEVEL environment variable
-func setLogLevel() {
+// SetLogLevel assigns the log level based on the LOGLEVEL environment variable
+func SetLogLevel() {
 	lvl, keyExists := os.LookupEnv("LOGLEVEL")
 	if !keyExists {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -37,8 +37,8 @@ func setLogLevel() {
 	}
 }
 
-// getPort gets the port from the PORT environment variable, default 8080
-func getPort() int {
+// GetPort gets the port from the PORT environment variable, default 8080
+func GetPort() int {
 	portStr, exists := os.LookupEnv("PORT")
 	if !exists {
 		log.Info().Msg("PORT environment variable not found, defaulting port to 8080")
@@ -57,9 +57,10 @@ func getPort() int {
 	return port
 }
 
-func getAppSecret() string {
+// GetAppSecret gets the app secret from the SECRET environment variable
+func GetAppSecret() string {
 	appSecret, exists := os.LookupEnv("SECRET")
-	if !exists || appSecret != "" {
+	if !exists || appSecret == "" {
 		log.Fatal().Msg("SECRET environment variable not found, exiting")
 		os.Exit(1)
 	}
@@ -67,9 +68,10 @@ func getAppSecret() string {
 	return appSecret
 }
 
-func getClusterName() string {
+// GetClusterName gets the cluster name from the CLUSTERNAME environment variable
+func GetClusterName() string {
 	clusterName, exists := os.LookupEnv("CLUSTERNAME")
-	if !exists || clusterName != "" {
+	if !exists || clusterName == "" {
 		log.Fatal().Msg("CLUSTERNAME environment variable not found, exiting")
 		os.Exit(1)
 	}
@@ -77,9 +79,21 @@ func getClusterName() string {
 	return clusterName
 }
 
-func getAWSRegion() string {
+// GetCloudProviderType gets the cloud proivder type from the CLOUD_PROVIDER environment variable
+func GetCloudProviderType() string {
+	cloudProvider, exists := os.LookupEnv("CLOUD_PROVIDER")
+	if !exists || cloudProvider == "" {
+		log.Fatal().Msg("CLOUD_PROVIDER environment variable not found, exiting")
+		os.Exit(1)
+	}
+
+	return cloudProvider
+}
+
+// GetAWSRegion gets the AWS region from the AWS_REGION environment variable
+func GetAWSRegion() string {
 	awsRegion, exists := os.LookupEnv("AWS_REGION")
-	if !exists || awsRegion != "" {
+	if !exists || awsRegion == "" {
 		log.Fatal().Msg("AWS_REGION environment variable not found, exiting")
 		os.Exit(1)
 	}

@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"testing"
@@ -8,20 +8,24 @@ import (
 )
 
 func TestDescribeLoadBalancers(t *testing.T) {
-	clients := handler{ELB: &fakeELB{
-		describeELBOutput: &elb.DescribeLoadBalancersOutput{
-			LoadBalancerDescriptions: []*elb.LoadBalancerDescription{
-				&elb.LoadBalancerDescription{
-					LoadBalancerName: aws.String("ELBA"),
-					VPCId:            aws.String("vpc-1")},
-				&elb.LoadBalancerDescription{
-					LoadBalancerName: aws.String("ELBB"),
-					VPCId:            aws.String("vpc-2"),
+	clients := CloudProvider{
+		VPCID: "vpc-1",
+		ELB: &fakeELB{
+			describeELBOutput: &elb.DescribeLoadBalancersOutput{
+				LoadBalancerDescriptions: []*elb.LoadBalancerDescription{
+					&elb.LoadBalancerDescription{
+						LoadBalancerName: aws.String("ELBA"),
+						VPCId:            aws.String("vpc-1"),
+					},
+					&elb.LoadBalancerDescription{
+						LoadBalancerName: aws.String("ELBB"),
+						VPCId:            aws.String("vpc-2"),
+					},
 				},
 			},
 		},
-	}}
-	elbs, _ := clients.getELBV1NamesInVPC("vpc-1")
+	}
+	elbs, _ := clients.getELBV1NamesInVPC()
 	if len(elbs) != 1 {
 		t.Fatalf("Expected only one result, got %v", len(elbs))
 	}
@@ -84,9 +88,11 @@ func TestFilterELBV1s(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		clients := &handler{ELB: &fakeELB{
-			describeTagsOutput: &c.Resp,
-		}}
+		clients := &CloudProvider{
+			ELB: &fakeELB{
+				describeTagsOutput: &c.Resp,
+			},
+		}
 		filtered, _ := clients.filterELBV1sWithTag(nil, "kubernetets/cluster/clustername")
 		if len(filtered) != len(c.Expected) {
 			t.Fatalf("%d failed - unexpected number of results, expected %v, actual %v", i, len(c.Expected), len(filtered))
@@ -100,7 +106,7 @@ func TestFilterELBV1s(t *testing.T) {
 }
 
 func TestDrainNodeFromELBV1WhenPresent(t *testing.T) {
-	clients := &handler{
+	clients := &CloudProvider{
 		ELB: &fakeELB{
 			descHealthOutput: &elb.DescribeInstanceHealthOutput{
 				InstanceStates: []*elb.InstanceState{
@@ -122,7 +128,7 @@ func TestDrainNodeFromELBV1WhenPresent(t *testing.T) {
 }
 
 func TestDrainNodeFromELBV1WhenNotPresent(t *testing.T) {
-	clients := &handler{
+	clients := &CloudProvider{
 		ELB: &fakeELB{
 			descHealthOutput: &elb.DescribeInstanceHealthOutput{
 				InstanceStates: []*elb.InstanceState{
