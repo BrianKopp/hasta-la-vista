@@ -35,7 +35,7 @@ jobs:
       uses: elgohr/Publish-Docker-Github-Action@2.14
       with:
         # The name of the image you would like to push
-        name: hasta-la-vista
+        name: briankopp/hasta-la-vista
         # The login username for the registry
         username: ${{ secrets.DOCKER_USERNAME }}
         # The login password for the registry
