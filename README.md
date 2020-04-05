@@ -39,7 +39,7 @@ with the key: `kubernetets/cluster/<cluster_name>`
 | LOGLEVEL | the logging verbosity, accepts `debug`, `info`, `warn` and `error` | `info` |
 | CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
 | VPCID | the VPC ID of your cluster | N/A |
-| CLOUDPROVIDER | the type of cloud provider, accepts `aws` | N/A |
+| CLOUDPROVIDER | the type of cloud provider, options (`aws`) | N/A |
 
 ## Problem Cases
 

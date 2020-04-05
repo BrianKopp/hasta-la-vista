@@ -1,0 +1,74 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "fullname" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    component: app
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{- if .Values.deployment.labels }}
+{{ toYaml .Values.deployment.labels | indent 4 }}
+{{- end }}
+{{- with .Values.deployment.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}    
+{{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: {{ template "fullname" . }}
+      release: {{ .Release.Name }}
+{{- with .Values.deployment.strategy }}
+  strategy:
+{{ toYaml . | trim | indent 4 }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+        release: {{ .Release.Name }}
+      annotations:
+{{- with .Values.deployment.pod.annotations}}
+{{ toYaml . | indent 8 }}
+{{- end }}
+    spec:
+      containers:
+      - name: {{ .Values.deployment.pod.containerName}}
+        image: "{{ .Values.imageName }}:{{ .Values.imageTag }}"
+        imagePullPolicy: {{ .Values.deployment.pod.imagePullPolicy }}
+        ports:
+        - containerPort: {{ .Values.deployment.pod.port }}
+        env:
+        - name: LOGLEVEL
+          value: {{ .Values.logLevel }}
+{{- if .Values.secretPassword }}
+        - name: SECRET
+          value: {{ .Values.secretPassword }}
+{{- end }}
+{{- if .Values.existingSecretName }}
+        - name: SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.existingSecretName }}
+              key: {{ .Values.existingSecretKey }}
+{{- end }}
+{{- if .Values.aws.enabled }}
+        - name: CLOUDPROVIDER
+          value: aws
+        - name: AWS_REGION
+          value: {{ .Values.aws.region }}
+        - name: CLUSTERNAME
+          value: {{ .Values.aws.clusterName }}
+{{- end }}
+        readinessProbe: {{ .Values.deployment.pod.readiness }}
+        livenessProbe: {{ .Values.deployment.pod.liveness }}
+        resources:
+{{ toYaml .Values.deployment.resources | indent 10 }}
+{{- if .Values.deployment.affinity }}
+      affinity:
+{{ toYaml .Values.deployment.affinity | indent 8 }}
+{{- end }}
