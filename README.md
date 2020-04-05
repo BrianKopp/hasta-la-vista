@@ -35,11 +35,11 @@ with the key: `kubernetets/cluster/<cluster_name>`
 | Name | Description | Default |
 |:----:|:----------- |:-------:|
 | SECRET | the secret with which to protect your API | N/A |
-| CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
-| VPC | the VPC ID of your cluster | N/A |
 | AWS_REGION | the AWS region you're in | N/A |
-| PORT | the port you want to run on| 3000 |
 | LOGLEVEL | the logging verbosity, accepts `debug`, `info`, `warn` and `error` | `info` |
+| CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
+| VPCID | the VPC ID of your cluster | N/A |
+| CLOUDPROVIDER | the type of cloud provider, accepts `aws` | N/A |
 
 ## Problem Cases
 
