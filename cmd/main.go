@@ -9,25 +9,28 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/elb"
+	"github.com/briankopp/hasta-la-vista/pkg/deregister"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+func buildCloudProvider(which string) deregister.CloudProvider {
+	clusterName := getClusterName()
+	// set up AWS clients
+	awsSession := session.Must(session.NewSession())
+	config := aws.Config{Region: aws.String(getAWSRegion())}
+
+	handler := &handler{
+		ELB: elbClient}
+	return nil
+}
 
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	setLogLevel()
 	appSecret := getAppSecret()
-	clusterName := getClusterName()
 
-	// set up AWS clients
-	awsSession := session.Must(session.NewSession())
-	config := aws.Config{Region: aws.String(getAWSRegion())}
-	elbClient := elb.New(awsSession, &config)
-	// elbv2Client := elbv2.New(awsSession, &config)
-
-	handler := &handler{
-		ELB: elbClient}
+	provider := buildCloudProvider("aws") // TODO
 
 	svr := &http.Server{Addr: fmt.Sprintf(":%v", getPort())}
 	http.HandleFunc("/health", func(response http.ResponseWriter, request *http.Request) {
@@ -47,7 +50,8 @@ func main() {
 			return
 		}
 
-		nodeID := request.URL.Query().Get("id")
+		nodeName := request.URL.Query().Get("node")
+		// err := provider.Der
 		nodeIP := request.URL.Query().Get("ip")
 		vpcID := request.URL.Query().Get("vpcid")
 		err := handler.handleDeregistration(nodeID, nodeIP, clusterName, vpcID)

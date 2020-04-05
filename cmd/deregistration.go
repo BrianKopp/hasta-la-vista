@@ -6,15 +6,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/rs/zerolog/log"
 )
 
 var awsSession = session.Must(session.NewSession())
-var elbClient *elb.ELB
-var elbV2Client *elbv2.ELBV2
 
 func (m *handler) handleDeregistration(nIP string, nID string, clusterName string, vpcID string) error {
 	log.Info().
