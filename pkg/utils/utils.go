@@ -2,7 +2,6 @@ package utils
 
 import (
 	"os"
-	"strconv"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -37,26 +36,6 @@ func SetLogLevel() {
 	}
 }
 
-// GetPort gets the port from the PORT environment variable, default 8080
-func GetPort() int {
-	portStr, exists := os.LookupEnv("PORT")
-	if !exists {
-		log.Info().Msg("PORT environment variable not found, defaulting port to 8080")
-		return 8080
-	}
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Warn().
-			Str("port", portStr).
-			Msg("Error converting PORT environment variable to number, defaulting port to 8080")
-		return 8080
-	}
-
-	log.Info().Int("port", port).Msg("PORT environment variable successfully resolved")
-	return port
-}
-
 // GetAppSecret gets the app secret from the SECRET environment variable
 func GetAppSecret() string {
 	appSecret, exists := os.LookupEnv("SECRET")
@@ -79,11 +58,22 @@ func GetClusterName() string {
 	return clusterName
 }
 
+// GetVPCID gets the VPC ID from the VPCID environment variable
+func GetVPCID() string {
+	vpcID, exists := os.LookupEnv("VPCID")
+	if !exists || vpcID == "" {
+		log.Fatal().Msg("VPCID environment variable not found, exiting")
+		os.Exit(1)
+	}
+
+	return vpcID
+}
+
 // GetCloudProviderType gets the cloud proivder type from the CLOUD_PROVIDER environment variable
 func GetCloudProviderType() string {
-	cloudProvider, exists := os.LookupEnv("CLOUD_PROVIDER")
+	cloudProvider, exists := os.LookupEnv("CLOUDPROVIDER")
 	if !exists || cloudProvider == "" {
-		log.Fatal().Msg("CLOUD_PROVIDER environment variable not found, exiting")
+		log.Fatal().Msg("CLOUDPROVIDER environment variable not found, exiting")
 		os.Exit(1)
 	}
 

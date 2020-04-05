@@ -52,8 +52,12 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string, response http
 	nodeID := nodeName
 	if !strings.HasPrefix(nodeName, "i-") {
 		// get node ID from hostname
-		nodeIDFromHostname := "TODO"
-		nodeID = nodeIDFromHostname
+		nodeIDFromHostname, err := m.getNodeIDFromIP(nodeName)
+		if err != nil {
+			return err
+		}
+
+		nodeID = *nodeIDFromHostname
 	}
 
 	var wg sync.WaitGroup
