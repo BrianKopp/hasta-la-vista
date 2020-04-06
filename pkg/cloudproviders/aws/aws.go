@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -37,18 +36,16 @@ type MyELBV2API interface {
 // CloudProvider is a wrapper around the required interfaces
 // to allow for mocking. It implements the CloudProvider interface
 type CloudProvider struct {
-	EC2         MyEC2API
-	ELB         MyELBAPI
-	ELBV2       MyELBV2API
-	ClusterName string
-	VPCID       string
+	EC2   MyEC2API
+	ELB   MyELBAPI
+	ELBV2 MyELBV2API
 }
 
 // DrainNodeFromLoadBalancer drains the node from both ELB and ELBV2 load balancers in AWS land
-func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string, response http.ResponseWriter, request *http.Request) error {
+func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string) error {
 	log.Info().
 		Str("nodeName", nodeName).
-		Msg("Handling deregistration for node")
+		Msg("handling deregistration for node")
 	nodeID := nodeName
 	if !strings.HasPrefix(nodeName, "i-") {
 		// get node ID from hostname
@@ -60,10 +57,16 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string, response http
 		nodeID = *nodeIDFromHostname
 	}
 
+	vpcID, clusterName, err := m.GetVPCAndClusterFromInstance(nodeID)
+	if err != nil {
+		return err
+	}
+
 	var wg sync.WaitGroup
+	wg.Add(2)
 	log.Info().Msg("beginning drain operations")
 	go func() {
-		err := m.drainNodeFromELBV1sInCluster(nodeID)
+		err := m.drainNodeFromELBV1sInCluster(nodeID, *vpcID, *clusterName)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -77,7 +80,7 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string, response http
 	}()
 
 	go func() {
-		err := m.drainNodeFromELBV2sInCluster(nodeID)
+		err := m.drainNodeFromELBV2sInCluster(nodeID, *vpcID, *clusterName)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -94,8 +97,8 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string, response http
 	return nil // TODO report error
 }
 
-func (m *CloudProvider) drainNodeFromELBV1sInCluster(nodeID string) error {
-	elbV1Names, err := m.getELBV1s()
+func (m *CloudProvider) drainNodeFromELBV1sInCluster(nodeID string, vpcID string, clusterName string) error {
+	elbV1Names, err := m.getELBV1s(vpcID, clusterName)
 	if err != nil {
 		return err
 	}
@@ -106,15 +109,27 @@ func (m *CloudProvider) drainNodeFromELBV1sInCluster(nodeID string) error {
 		start := time.Now()
 		go func(name string) {
 			for {
+				log.Debug().
+					Str("elbName", name).
+					Str("nodeID", nodeID).
+					Msg("draining node from ELB v1")
+
 				drained, _ := m.drainNodeFromELBV1(nodeID, name)
+
 				if drained {
 					wg.Done()
 					break
 				}
+
 				if time.Since(start) > (120 * time.Second) {
+					log.Warn().
+						Str("elbName", name).
+						Str("nodeID", nodeID).
+						Msg("node did not drain within 120s")
 					wg.Done()
 					break
 				}
+
 				time.Sleep(5 * time.Second)
 			}
 		}(elbV1Name)
@@ -123,8 +138,8 @@ func (m *CloudProvider) drainNodeFromELBV1sInCluster(nodeID string) error {
 	return nil
 }
 
-func (m *CloudProvider) drainNodeFromELBV2sInCluster(nodeID string) error {
-	targetGroupARNs, err := m.getELBV2TargetGroupARNsInCluster()
+func (m *CloudProvider) drainNodeFromELBV2sInCluster(nodeID string, vpcID string, clusterName string) error {
+	targetGroupARNs, err := m.getELBV2TargetGroupARNsInCluster(vpcID, clusterName)
 	if err != nil {
 		return nil
 	}
@@ -136,14 +151,25 @@ func (m *CloudProvider) drainNodeFromELBV2sInCluster(nodeID string) error {
 		go func(arn string) {
 			for {
 				drained, _ := m.drainNodeFromELBV2TargetGroup(nodeID, arn)
+				log.Debug().
+					Str("elbArn", arn).
+					Str("nodeID", nodeID).
+					Msg("draining node from ELB v2")
+
 				if drained {
 					wg.Done()
 					break
 				}
+
 				if time.Since(start) > (120 * time.Second) {
+					log.Warn().
+						Str("elbArn", arn).
+						Str("nodeID", nodeID).
+						Msg("node did not drain within 120s")
 					wg.Done()
 					break
 				}
+
 				time.Sleep(5 * time.Second)
 			}
 		}(targetGroupARN)
