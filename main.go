@@ -25,19 +25,15 @@ import (
 func buildCloudProvider(whichProvider string) (deregister.CloudProvider, error) {
 	if whichProvider == "aws" {
 		log.Info().Msg("building cloud provider for AWS")
-		clusterName := utils.GetClusterName()
-		vpcID := utils.GetVPCID()
 		awsSession := session.Must(session.NewSession())
 		config := aws.Config{Region: aws.String(utils.GetAWSRegion())}
 		elbClient := elb.New(awsSession, &config)
 		elbV2Client := elbv2.New(awsSession, &config)
 		ec2Client := ec2.New(awsSession, &config)
 		provider := &awsProvider.CloudProvider{
-			ClusterName: clusterName,
-			VPCID:       vpcID,
-			ELB:         elbClient,
-			ELBV2:       elbV2Client,
-			EC2:         ec2Client,
+			ELB:   elbClient,
+			ELBV2: elbV2Client,
+			EC2:   ec2Client,
 		}
 		return provider, nil
 	}

@@ -1,2 +1,4 @@
 hasta-la-vista
 hasta-la-vista.exe
+*.zip
+cmd/lambda-spot-termination/lambda-spot-termination
