@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -26,6 +27,8 @@ type asgDetails struct {
 	LifecycleActionToken string `json:"LifecycleActionToken"`
 	EC2InstanceID        string `json:"EC2InstanceId"`
 	LifecycleTransition  string `json:"LifecycleTransition"`
+	LifecycleHookName    string `json:"LifecycleHookName"`
+	AutoscalingGroupName string `json:"AutoScalingGroupName"`
 }
 
 // HandleSpotTerminationRequest is the lambda handler for Spot Termination CW Events
@@ -75,6 +78,24 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 	}
 
 	log.Info().Str("instanceId", details.EC2InstanceID).Msg("Successfully drained node from load balancer")
+
+	asgClient := autoscaling.New(awsSession, &config)
+	_, err = asgClient.CompleteLifecycleAction(
+		&autoscaling.CompleteLifecycleActionInput{
+			LifecycleActionResult: aws.String("CONTINUE"),
+			LifecycleActionToken:  &details.LifecycleActionToken,
+			LifecycleHookName:     &details.LifecycleHookName,
+			AutoScalingGroupName:  &details.AutoscalingGroupName,
+		},
+	)
+
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Error completing lifecycle action")
+		return
+	}
+
 	return
 }
 
