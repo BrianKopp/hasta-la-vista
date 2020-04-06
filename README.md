@@ -67,18 +67,3 @@ This situation is just like the scale down situation,
 except that the time frame is shorter. Your node
 may not have time to fail out of ELB health checks
 and gracefully drain by the time it is violently terminated.
-
-### Proxy Services
-
-Kubernetes services with `externalTrafficPolicy: Local`
-are notoriously challenging to work with. Nodes are
-configured to fail ELB health checks if they don't
-have a pod for the service on them. Nodes that do
-have the service pass health checks. Thus, the ELB
-only sends traffic to the nodes with the pods on them.
-
-It also means that when a pod gets a `SIGTERM`,
-it moves into a `Terminating` state, where it no longer
-receives traffic. There will be a period of time where the
-node hasn't failed its ELB health checks, but is unable
-to handle traffic.
