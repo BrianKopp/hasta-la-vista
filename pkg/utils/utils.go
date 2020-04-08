@@ -49,28 +49,6 @@ func GetAppSecret() string {
 	return appSecret
 }
 
-// GetClusterName gets the cluster name from the CLUSTERNAME environment variable
-func GetClusterName() string {
-	clusterName, exists := os.LookupEnv("CLUSTERNAME")
-	if !exists || clusterName == "" {
-		log.Fatal().Msg("CLUSTERNAME environment variable not found, exiting")
-		os.Exit(1)
-	}
-
-	return clusterName
-}
-
-// GetVPCID gets the VPC ID from the VPCID environment variable
-func GetVPCID() string {
-	vpcID, exists := os.LookupEnv("VPCID")
-	if !exists || vpcID == "" {
-		log.Fatal().Msg("VPCID environment variable not found, exiting")
-		os.Exit(1)
-	}
-
-	return vpcID
-}
-
 // GetCloudProviderType gets the cloud proivder type from the CLOUD_PROVIDER environment variable
 func GetCloudProviderType() string {
 	cloudProvider, exists := os.LookupEnv("CLOUDPROVIDER")

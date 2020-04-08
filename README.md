@@ -34,14 +34,12 @@ with the key: `kubernetets/cluster/<cluster_name>`
 
 | Name | Description | Default |
 |:----:|:----------- |:-------:|
-| SECRET | the secret with which to protect your API | N/A |
-| AWS_REGION | the AWS region you're in | N/A |
-| LOGLEVEL | the logging verbosity, accepts `debug`, `info`, `warn` and `error` | `info` |
-| CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
-| VPCID | the VPC ID of your cluster | N/A |
-| CLOUDPROVIDER | the type of cloud provider, options (`aws`) | N/A |
-| TIMEOUT |
-| DRYRUN |
+|SECRET|the secret with which to protect your API|N/A|
+|LOGLEVEL|the logging verbosity, accepts `debug`, `info`, `warn` and `error`|`info`|
+|CLOUDPROVIDER|the type of cloud provider, options (`aws`)|N/A|
+|TIMEOUT|the max amount of time the function will wait for the node to deregister|N\A|
+|DRYRUN|whether to operate in a "dry run" mode. No write actions are performed|`false`|
+|AWS_REGION|the AWS region you're in|N/A|
 
 ## Problem Cases
 
