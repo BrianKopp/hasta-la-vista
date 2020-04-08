@@ -9,7 +9,6 @@ import (
 
 func TestDescribeLoadBalancers(t *testing.T) {
 	clients := CloudProvider{
-		VPCID: "vpc-1",
 		ELB: &fakeELB{
 			describeELBOutput: &elb.DescribeLoadBalancersOutput{
 				LoadBalancerDescriptions: []*elb.LoadBalancerDescription{
@@ -25,7 +24,7 @@ func TestDescribeLoadBalancers(t *testing.T) {
 			},
 		},
 	}
-	elbs, _ := clients.getELBV1NamesInVPC()
+	elbs, _ := clients.getELBV1NamesInVPC("vpc-1")
 	if len(elbs) != 1 {
 		t.Fatalf("Expected only one result, got %v", len(elbs))
 	}
@@ -67,7 +66,7 @@ func TestFilterELBV1s(t *testing.T) {
 								Value: aws.String("matching"),
 							},
 							&elb.Tag{
-								Key:   aws.String("kubernetets/cluster/clustername"),
+								Key:   aws.String("kubernetets.io/cluster/clustername"),
 								Value: aws.String("matching"),
 							},
 						},
@@ -93,7 +92,7 @@ func TestFilterELBV1s(t *testing.T) {
 				describeTagsOutput: &c.Resp,
 			},
 		}
-		filtered, _ := clients.filterELBV1sWithTag(nil, "kubernetets/cluster/clustername")
+		filtered, _ := clients.filterELBV1sWithTag(nil, "kubernetets.io/cluster/clustername")
 		if len(filtered) != len(c.Expected) {
 			t.Fatalf("%d failed - unexpected number of results, expected %v, actual %v", i, len(c.Expected), len(filtered))
 		}

@@ -25,19 +25,18 @@ import (
 func buildCloudProvider(whichProvider string) (deregister.CloudProvider, error) {
 	if whichProvider == "aws" {
 		log.Info().Msg("building cloud provider for AWS")
-		clusterName := utils.GetClusterName()
-		vpcID := utils.GetVPCID()
 		awsSession := session.Must(session.NewSession())
 		config := aws.Config{Region: aws.String(utils.GetAWSRegion())}
 		elbClient := elb.New(awsSession, &config)
 		elbV2Client := elbv2.New(awsSession, &config)
 		ec2Client := ec2.New(awsSession, &config)
+		timeout := utils.GetTimeout()
 		provider := &awsProvider.CloudProvider{
-			ClusterName: clusterName,
-			VPCID:       vpcID,
-			ELB:         elbClient,
-			ELBV2:       elbV2Client,
-			EC2:         ec2Client,
+			ELB:     elbClient,
+			ELBV2:   elbV2Client,
+			EC2:     ec2Client,
+			Timeout: timeout,
+			DryRun:  utils.IsDryRun(),
 		}
 		return provider, nil
 	}
@@ -75,7 +74,7 @@ func main() {
 		}
 
 		nodeName := request.URL.Query().Get("node")
-		err := provider.DrainNodeFromLoadBalancer(nodeName, response, request)
+		err := provider.DrainNodeFromLoadBalancer(nodeName)
 		if err != nil {
 			response.WriteHeader(500)
 			return
