@@ -1,0 +1,24 @@
+{{- if .Values.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "fullname" . }}
+    component: app-service
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+{{- if .Values.service.extraLabels }}
+{{ toYaml .Values.service.extraLabels | indent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.inboundPort }}
+    targetPort: {{ .Values.deployment.pod.port }}
+    protocol: {{ .Values.service.protocol }}
+  selector:
+    app: {{ template "fullname" . }}
+{{- end }}

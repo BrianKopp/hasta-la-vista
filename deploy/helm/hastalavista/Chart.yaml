@@ -1,0 +1,15 @@
+apiVersion: v1
+appVersion: "0.1.0"
+description: Provides an endpoint to deregister your nodes from your load balancers
+name: hastalavista
+version: 0.1.0
+icon: ""
+keywords:
+  - deregister
+  - drain
+home: https://github.com/briankopp/hasta-la-vista
+sources:
+  - https://github.com/briankopp/hasta-la-vista
+maintainers:
+  - name: Brian Kopp
+    email: briankopp.usa@gmail.com

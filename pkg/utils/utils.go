@@ -2,6 +2,8 @@ package utils
 
 import (
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -47,28 +49,6 @@ func GetAppSecret() string {
 	return appSecret
 }
 
-// GetClusterName gets the cluster name from the CLUSTERNAME environment variable
-func GetClusterName() string {
-	clusterName, exists := os.LookupEnv("CLUSTERNAME")
-	if !exists || clusterName == "" {
-		log.Fatal().Msg("CLUSTERNAME environment variable not found, exiting")
-		os.Exit(1)
-	}
-
-	return clusterName
-}
-
-// GetVPCID gets the VPC ID from the VPCID environment variable
-func GetVPCID() string {
-	vpcID, exists := os.LookupEnv("VPCID")
-	if !exists || vpcID == "" {
-		log.Fatal().Msg("VPCID environment variable not found, exiting")
-		os.Exit(1)
-	}
-
-	return vpcID
-}
-
 // GetCloudProviderType gets the cloud proivder type from the CLOUD_PROVIDER environment variable
 func GetCloudProviderType() string {
 	cloudProvider, exists := os.LookupEnv("CLOUDPROVIDER")
@@ -89,4 +69,33 @@ func GetAWSRegion() string {
 	}
 
 	return awsRegion
+}
+
+// GetTimeout gets the TIMEOUT environment variable in seconds
+func GetTimeout() time.Duration {
+	timeoutSeconds, exists := os.LookupEnv("TIMEOUT")
+	if !exists || timeoutSeconds == "" {
+		log.Info().Msg("No TIMEOUT environment variable found, defaulting to 60s")
+		return 60 * time.Second
+	}
+
+	timeoutSecondsInt, err := strconv.Atoi(timeoutSeconds)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing TIMEOUT environment variable, defaulting to 60s")
+		return 60 * time.Second
+	}
+
+	return time.Duration(timeoutSecondsInt) * time.Second
+}
+
+// IsDryRun gets whether the lambda is a dry run. DRYRUN environment variable must be 1 if true, else false
+func IsDryRun() bool {
+	dryRun, exists := os.LookupEnv("DRYRUN")
+	if exists && dryRun == "1" {
+		log.Info().Msg("DRYRUN set to true")
+		return true
+	}
+
+	log.Info().Msg("Running in normal mode (not DRYRUN)")
+	return false
 }

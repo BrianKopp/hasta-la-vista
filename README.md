@@ -1,4 +1,5 @@
 # Hasta-La-Vista
+![Go Build](https://github.com/BrianKopp/hasta-la-vista/workflows/Go/badge.svg)
 
 A simple golang application to ensure that nodes are fully deregistered
 from Elastic Load Balancers.
@@ -34,12 +35,12 @@ with the key: `kubernetets/cluster/<cluster_name>`
 
 | Name | Description | Default |
 |:----:|:----------- |:-------:|
-| SECRET | the secret with which to protect your API | N/A |
-| AWS_REGION | the AWS region you're in | N/A |
-| LOGLEVEL | the logging verbosity, accepts `debug`, `info`, `warn` and `error` | `info` |
-| CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
-| VPCID | the VPC ID of your cluster | N/A |
-| CLOUDPROVIDER | the type of cloud provider, accepts `aws` | N/A |
+|SECRET|the secret with which to protect your API|N/A|
+|LOGLEVEL|the logging verbosity, accepts `debug`, `info`, `warn` and `error`|`info`|
+|CLOUDPROVIDER|the type of cloud provider, options (`aws`)|N/A|
+|TIMEOUT|the max amount of time the function will wait for the node to deregister|N\A|
+|DRYRUN|whether to operate in a "dry run" mode. No write actions are performed|`false`|
+|AWS_REGION|the AWS region you're in|N/A|
 
 ## Problem Cases
 
@@ -67,18 +68,3 @@ This situation is just like the scale down situation,
 except that the time frame is shorter. Your node
 may not have time to fail out of ELB health checks
 and gracefully drain by the time it is violently terminated.
-
-### Proxy Services
-
-Kubernetes services with `externalTrafficPolicy: Local`
-are notoriously challenging to work with. Nodes are
-configured to fail ELB health checks if they don't
-have a pod for the service on them. Nodes that do
-have the service pass health checks. Thus, the ELB
-only sends traffic to the nodes with the pods on them.
-
-It also means that when a pod gets a `SIGTERM`,
-it moves into a `Terminating` state, where it no longer
-receives traffic. There will be a period of time where the
-node hasn't failed its ELB health checks, but is unable
-to handle traffic.

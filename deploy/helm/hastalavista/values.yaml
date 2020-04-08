@@ -1,0 +1,112 @@
+# Image name
+imageName: briankopp/hasta-la-vista
+
+# Image tag
+imageTag: "1.0.0"
+
+# Configuration
+secretPassword: ""
+existingSecretName: ""
+existingSecretKey: ""
+
+# Log level, e.g. debug, info, warn, error
+logLevel: info
+
+# Configuration for AWS
+aws:
+  # Whether to use AWS
+  enabled: false
+  # AWS Region
+  region: "us-east-1"
+  # Cluster name
+  clusterName: ""
+
+deployment:
+  # Additional labels
+  labels: {}
+  
+  # Deployment annotations
+  annotations: {}
+  
+  # Number of replicas
+  replicas: 1
+
+  # Upgrade strategy
+  strategy:
+    rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 25%
+    type: RollingUpdate
+  
+  pod:
+    # Pod annotations, e.g. for Kube2IAM or IAM Roles as Service Accounts
+    annotations: {}
+
+    # Container name
+    containerName: hastalavista
+
+    # Image pull policy
+    imagePullPolicy: IfNotPresent
+
+    # Pod port
+    port: 80
+    
+    # readiness probe TODO
+    readiness:
+      probe:
+        httpGet:
+          port: 80
+          path: '/health'
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 3
+        successThreshold: 1
+        failureThreshold: 3
+        timeoutThreshold: 3
+
+    # Liveness probe TODO
+    liveness:
+      probe:
+        httpGet:
+          port: 80
+          path: '/health'
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 2
+        failureThreshold: 5
+        timeoutThreshold: 3
+
+    # Resources
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    
+    # affinity
+    affinity: {}
+
+service:
+  enabled: true
+  type: ClusterIP
+  inboundPort: 80
+  protocol: TCP
+  extraLabels: {}
+
+ingress:
+  enabled: true
+  class: nginx
+  # Extra annotations, e.g. for Cert-Manager
+  extraAnnotations: {}
+
+  # Extra labels
+  extraLabels: {}
+
+  enableTLS: true
+  tls:
+  host: ""
+  tlsSecretName: ""
+

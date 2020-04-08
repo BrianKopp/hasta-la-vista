@@ -4,3 +4,6 @@ docs
 hasta-la-vista
 Dockerfile
 docker-compose.yaml
+*.zip
+cmd/lambda-spot-termination/lambda-spot-termination
+cmd/lambda-asg-term-hook/lambda-asg-term-hook
