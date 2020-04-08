@@ -1,4 +1,5 @@
 # Hasta-La-Vista
+![Go Build](https://github.com/BrianKopp/hasta-la-vista/workflows/Go/badge.svg)
 
 A simple golang application to ensure that nodes are fully deregistered
 from Elastic Load Balancers.
