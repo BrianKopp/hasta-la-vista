@@ -22,7 +22,7 @@ Messages coming through CloudWatch look like:
   "detail-type": "EC2 Instance-terminate Lifecycle Action",
   "source": "aws.autoscaling",
   "account": "123456789012",
-  "time": "yyyy-mm-ddThh:mm:ssZ",
+  "time": "2020-01-01T01:00:00Z",
   "region": "us-west-2",
   "resources": [
     "auto-scaling-group-arn"
@@ -35,7 +35,8 @@ Messages coming through CloudWatch look like:
     "LifecycleTransition":"autoscaling:EC2_INSTANCE_TERMINATING",
     "NotificationMetadata":"additional-info"
   }
-}```
+}
+```
 
 ## IAM Permissions
 
@@ -69,6 +70,14 @@ The lambda function role needs to have the following policy.
     "Effect": "Allow",
     "Action": [
       "elbv2:DeregisterTargets"
+    ],
+    "Resources": "*" // restrict accordingly
+  }, {
+    "Sid": "AllowASGLifecycleHook",
+    "Effect": "Allow",
+    "Action": [
+      "autoscaling:CompleteLifecycleAction",
+      "autoscaling:RecordLifecycleActionHeartbeat"
     ],
     "Resources": "*" // restrict accordingly
   }

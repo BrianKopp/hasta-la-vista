@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -28,12 +29,12 @@ type instanceDetail struct {
 }
 
 // HandleSpotTerminationRequest is the lambda handler for Spot Termination CW Events
-func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEvent) {
+func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEvent) error {
 	if req.DetailType != "EC2 Spot Instance Interruption Warning" {
 		log.Warn().
 			Str("detail-type", req.DetailType).
 			Msg("received unexpected detail-type request")
-		return
+		return errors.New("received unexpected detail-type request")
 	}
 
 	var details instanceDetail
@@ -43,14 +44,14 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 			Err(err).
 			Str("details", fmt.Sprintf("%v", req.Detail)).
 			Msg("Unable to decode the instance details")
-		return
+		return err
 	}
 
 	if details.InstanceAction != "terminate" {
 		log.Warn().
 			Str("instanceAction", details.InstanceAction).
 			Msg("instance-action not terminate")
-		return
+		return errors.New("instance-action not terminate")
 	}
 
 	// Acquire AWS client
@@ -59,10 +60,13 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 	elbClient := elb.New(awsSession, &config)
 	elbV2Client := elbv2.New(awsSession, &config)
 	ec2Client := ec2.New(awsSession, &config)
+	timeout := utils.GetTimeout()
 	provider := &awsProvider.CloudProvider{
-		ELB:   elbClient,
-		ELBV2: elbV2Client,
-		EC2:   ec2Client,
+		ELB:     elbClient,
+		ELBV2:   elbV2Client,
+		EC2:     ec2Client,
+		Timeout: timeout,
+		DryRun:  utils.IsDryRun(),
 	}
 
 	err = provider.DrainNodeFromLoadBalancer(details.InstanceID)
@@ -70,11 +74,11 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 		log.Error().
 			Err(err).
 			Msg("Error draining node from load balencers")
-		return
+		return err
 	}
 
 	log.Info().Str("instanceId", details.InstanceID).Msg("Successfully drained node from load balancer")
-	return
+	return nil
 }
 
 func setupLogger() {

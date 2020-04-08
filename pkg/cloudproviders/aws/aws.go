@@ -36,9 +36,11 @@ type MyELBV2API interface {
 // CloudProvider is a wrapper around the required interfaces
 // to allow for mocking. It implements the CloudProvider interface
 type CloudProvider struct {
-	EC2   MyEC2API
-	ELB   MyELBAPI
-	ELBV2 MyELBV2API
+	EC2     MyEC2API
+	ELB     MyELBAPI
+	ELBV2   MyELBV2API
+	Timeout time.Duration
+	DryRun  bool
 }
 
 // DrainNodeFromLoadBalancer drains the node from both ELB and ELBV2 load balancers in AWS land
@@ -75,7 +77,7 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string) error {
 			wg.Done()
 			return
 		}
-		log.Info().Str("nodeID", nodeID).Msg("successfully drained from all v1 ELBs")
+		log.Info().Str("nodeID", nodeID).Msg("completed drain for all v1 ELBs")
 		wg.Done()
 	}()
 
@@ -89,7 +91,7 @@ func (m *CloudProvider) DrainNodeFromLoadBalancer(nodeName string) error {
 			wg.Done()
 			return
 		}
-		log.Info().Str("nodeID", nodeID).Msg("successfully drained from all v2 ELBs")
+		log.Info().Str("nodeID", nodeID).Msg("completed drained for all v2 ELBs")
 		wg.Done()
 	}()
 
@@ -121,7 +123,7 @@ func (m *CloudProvider) drainNodeFromELBV1sInCluster(nodeID string, vpcID string
 					break
 				}
 
-				if time.Since(start) > (120 * time.Second) {
+				if time.Since(start) > m.Timeout {
 					log.Warn().
 						Str("elbName", name).
 						Str("nodeID", nodeID).
@@ -150,7 +152,7 @@ func (m *CloudProvider) drainNodeFromELBV2sInCluster(nodeID string, vpcID string
 		start := time.Now()
 		go func(arn string) {
 			for {
-				drained, _ := m.drainNodeFromELBV2TargetGroup(nodeID, arn)
+				drained, _ := m.nodeDrainedFromELBV2TargetGroup(nodeID, arn)
 				log.Debug().
 					Str("elbArn", arn).
 					Str("nodeID", nodeID).
@@ -161,7 +163,7 @@ func (m *CloudProvider) drainNodeFromELBV2sInCluster(nodeID string, vpcID string
 					break
 				}
 
-				if time.Since(start) > (120 * time.Second) {
+				if time.Since(start) > m.Timeout {
 					log.Warn().
 						Str("elbArn", arn).
 						Str("nodeID", nodeID).

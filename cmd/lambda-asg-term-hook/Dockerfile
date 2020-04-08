@@ -4,7 +4,7 @@ WORKDIR /go/src/github.com/briankopp/hasta-la-vista
 COPY go.* ./
 RUN go mod download
 COPY . .
-RUN cd cmd/lambda-spot-termination && \
+RUN cd cmd/lambda-asg-term-hook && \
     go build && \
-    zip lambda.zip lambda-spot-termination
-RUN ls -al cmd/lambda-spot-termination
+    zip lambda.zip lambda-asg-term-hook
+RUN ls -al cmd/lambda-asg-term-hook

@@ -97,13 +97,24 @@ func (m *CloudProvider) drainNodeFromELBV1(nodeID string, elbV1Name string) (don
 		return true, nil
 	}
 
+	if m.DryRun {
+		log.Info().
+			Str("nodeID", nodeID).
+			Str("elbName", elbV1Name).
+			Msg("DRY-RUN (no action taken)---Node InService at elb, draining (faking success)")
+		return false, nil
+	}
+
 	log.Info().
 		Str("nodeID", nodeID).
 		Str("elbName", elbV1Name).
 		Msg("Node InService at elb, draining")
+
 	_, err = m.ELB.DeregisterInstancesFromLoadBalancer(&elb.DeregisterInstancesFromLoadBalancerInput{
 		Instances:        []*elb.Instance{&elb.Instance{InstanceId: &nodeID}},
-		LoadBalancerName: &elbV1Name})
+		LoadBalancerName: &elbV1Name,
+	})
+
 	if err != nil {
 		return false, err
 	}

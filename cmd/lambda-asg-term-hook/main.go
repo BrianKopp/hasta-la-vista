@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -32,12 +33,12 @@ type asgDetails struct {
 }
 
 // HandleSpotTerminationRequest is the lambda handler for Spot Termination CW Events
-func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEvent) {
-	if req.DetailType != "EC2 Instance-launch Lifecycle Action" {
+func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEvent) error {
+	if req.DetailType != "EC2 Instance-terminate Lifecycle Action" {
 		log.Warn().
 			Str("detail-type", req.DetailType).
 			Msg("received unexpected detail-type request")
-		return
+		return errors.New("received unexpected detail-type request")
 	}
 
 	var details asgDetails
@@ -47,14 +48,14 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 			Err(err).
 			Str("details", fmt.Sprintf("%v", req.Detail)).
 			Msg("Unable to decode the instance details")
-		return
+		return errors.New("error decoding the instance details")
 	}
 
 	if details.LifecycleTransition != "autoscaling:EC2_INSTANCE_TERMINATING" {
 		log.Warn().
 			Str("transition", details.LifecycleTransition).
 			Msg("Transition not terminate")
-		return
+		return errors.New("Cannot process LifecycleTransition if not autoscaling:EC2_INSTANCE_TERMINATING")
 	}
 
 	// Acquire AWS client
@@ -63,10 +64,13 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 	elbClient := elb.New(awsSession, &config)
 	elbV2Client := elbv2.New(awsSession, &config)
 	ec2Client := ec2.New(awsSession, &config)
+	timeout := utils.GetTimeout()
 	provider := &awsProvider.CloudProvider{
-		ELB:   elbClient,
-		ELBV2: elbV2Client,
-		EC2:   ec2Client,
+		ELB:     elbClient,
+		ELBV2:   elbV2Client,
+		EC2:     ec2Client,
+		Timeout: timeout,
+		DryRun:  utils.IsDryRun(),
 	}
 
 	err = provider.DrainNodeFromLoadBalancer(details.EC2InstanceID)
@@ -74,7 +78,7 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 		log.Error().
 			Err(err).
 			Msg("Error draining node from load balencers")
-		return
+		return err
 	}
 
 	log.Info().Str("instanceId", details.EC2InstanceID).Msg("Successfully drained node from load balancer")
@@ -93,10 +97,10 @@ func HandleSpotTerminationRequest(ctx context.Context, req events.CloudWatchEven
 		log.Error().
 			Err(err).
 			Msg("Error completing lifecycle action")
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
 func setupLogger() {

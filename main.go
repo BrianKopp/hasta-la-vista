@@ -30,10 +30,13 @@ func buildCloudProvider(whichProvider string) (deregister.CloudProvider, error) 
 		elbClient := elb.New(awsSession, &config)
 		elbV2Client := elbv2.New(awsSession, &config)
 		ec2Client := ec2.New(awsSession, &config)
+		timeout := utils.GetTimeout()
 		provider := &awsProvider.CloudProvider{
-			ELB:   elbClient,
-			ELBV2: elbV2Client,
-			EC2:   ec2Client,
+			ELB:     elbClient,
+			ELBV2:   elbV2Client,
+			EC2:     ec2Client,
+			Timeout: timeout,
+			DryRun:  utils.IsDryRun(),
 		}
 		return provider, nil
 	}
@@ -71,7 +74,7 @@ func main() {
 		}
 
 		nodeName := request.URL.Query().Get("node")
-		err := provider.DrainNodeFromLoadBalancer(nodeName, response, request)
+		err := provider.DrainNodeFromLoadBalancer(nodeName)
 		if err != nil {
 			response.WriteHeader(500)
 			return

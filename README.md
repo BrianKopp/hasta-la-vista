@@ -40,6 +40,8 @@ with the key: `kubernetets/cluster/<cluster_name>`
 | CLUSTERNAME | your cluster`s name, used for tag lookups | N/A |
 | VPCID | the VPC ID of your cluster | N/A |
 | CLOUDPROVIDER | the type of cloud provider, options (`aws`) | N/A |
+| TIMEOUT |
+| DRYRUN |
 
 ## Problem Cases
 

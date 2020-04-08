@@ -7,6 +7,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type nodeStatus int
+
+const (
+	notInTargetGroup   nodeStatus = iota
+	statusDraining     nodeStatus = iota
+	statusNeedsDrained nodeStatus = iota
+)
+
 func (m *CloudProvider) getELBV2TargetGroupARNsInCluster(vpcID string, clusterName string) ([]string, error) {
 	elbsInVPC, err := m.getELBV2sInVPC(vpcID)
 	if err != nil {
@@ -113,13 +121,21 @@ func (m *CloudProvider) filterELBV2sWithTag(elbV2ARNs []*string, expectedTag str
 	return filteredARNs, nil
 }
 
-func (m *CloudProvider) drainNodeFromELBV2TargetGroup(nodeID string, targetGroupArn string) (bool, error) {
-	needsDraining, err := m.instanceNeedsDrainingFromTargetGroup(nodeID, targetGroupArn)
+func (m *CloudProvider) nodeDrainedFromELBV2TargetGroup(nodeID string, targetGroupArn string) (bool, error) {
+	drainStatus, err := m.instanceTargetGroupDrainStatus(nodeID, targetGroupArn)
 	if err != nil {
 		return false, err
 	}
 
-	if needsDraining {
+	if drainStatus == statusNeedsDrained && m.DryRun {
+		log.Info().
+			Str("nodeID", nodeID).
+			Str("targetGroupArn", targetGroupArn).
+			Msg("DRY-RUN (no action taken)---Node needs draining")
+		return false, nil
+	}
+
+	if drainStatus == statusNeedsDrained && !m.DryRun {
 		log.Info().
 			Str("nodeID", nodeID).
 			Str("targetGroupArn", targetGroupArn).
@@ -134,19 +150,28 @@ func (m *CloudProvider) drainNodeFromELBV2TargetGroup(nodeID string, targetGroup
 		return false, nil
 	}
 
+	if drainStatus == statusDraining {
+		log.Info().
+			Str("nodeID", nodeID).
+			Str("targetGroupArn", targetGroupArn).
+			Bool("isDraining", true).
+			Msg("node is draining")
+		return false, nil
+	}
+
 	log.Info().
 		Str("nodeID", nodeID).
 		Str("targetGroupArn", targetGroupArn).
-		Msg("Node does not need draining")
-
+		Bool("isDraining", true).
+		Msg("node does not need to be drained")
 	return true, nil
 }
 
-func (m *CloudProvider) instanceNeedsDrainingFromTargetGroup(nodeID string, targetGroupArn string) (bool, error) {
+func (m *CloudProvider) instanceTargetGroupDrainStatus(nodeID string, targetGroupArn string) (nodeStatus, error) {
 	healthResult, err := m.ELBV2.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
 		TargetGroupArn: &targetGroupArn})
 	if err != nil {
-		return false, err
+		return notInTargetGroup, err
 	}
 
 	instanceAtELB := false
@@ -160,10 +185,15 @@ func (m *CloudProvider) instanceNeedsDrainingFromTargetGroup(nodeID string, targ
 		}
 	}
 
-	if instanceAtELB && state != "draining" {
-		return true, nil
+	if state == "draining" {
+		return statusDraining, nil
 	}
-	return false, nil
+
+	if instanceAtELB {
+		return statusNeedsDrained, nil
+	}
+
+	return notInTargetGroup, nil
 }
 
 func contains(lst []string, s string) bool {
